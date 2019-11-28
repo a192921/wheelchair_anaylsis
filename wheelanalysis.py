@@ -3,6 +3,11 @@ import struct
 import math
 import json
 import serial
+import re
+from time import gmtime, strftime
+import pickle
+import pandas as pd
+import sklearn
 
 def _TI_UUID(val):
     return UUID("%08X-0451-4000-b000-000000000000" % (0xF0000000+val))
@@ -419,6 +424,12 @@ def main():
     import time
     import sys
     import argparse
+    from time import gmtime, strftime
+    import serial
+    import pickle
+    import pandas as pd
+    import os
+    from sklearn.externals import joblib
 
     parser = argparse.ArgumentParser()
     parser.add_argument('host', action='store',help='MAC of BT device')
@@ -470,115 +481,166 @@ def main():
     # Not waiting here after enabling a sensor, the first read value might be empty or incorrect.
     #time.sleep(1.0)
     time.sleep(0.01)
-    file_name = str(int(time.time())) + ".log"
+    file_name = str(int(time.time())) + ".json"
     f = open(file_name, "w")
     counter=0
     
     #ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
     #ser.write("AT+SEND=123\r")
     #ser.close()
+
+    #date = strftime("%Y/%m/%d", gmtime())
+    #time = strftime("%H:%M:%S", gmtime())
     
     while True:
-       if arg.temperature:
-           print('Temp: ', tag.IRtemperature.read())
-           temp = tag.IRtemperature.read()
-           js = [{"temp'C":temp[0],"temp1'C":temp[1]}]
-           ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
-           ser.write("AT+SEND="+str(json.dumps(js))+"\r")
-           ser.close()
-           f.write(json.dumps(js))
-       if arg.humidity:
-           print("Humidity:",tag.humidity.read())
+        date = strftime("%Y/%m/%d", gmtime())
+        time = strftime("%H:%M:%S", gmtime())
+        #datetime = [{"date":date,"time":time}]
+        if arg.humidity or arg.all:
+           #print(datetime)
+           #print("Humidity:",tag.humidity.read())
            hum = tag.humidity.read()
-           js1 = [{"hum'C":hum[0],"hum%RH":hum[1]}]
+           temp = [{"date":date,"time":time,"Temp'C":hum[0]}]
+           humRH = [{"date":date,"time":time,"humRH":hum[1]}]
            ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
-           ser.write("AT+SEND="+str(json.dumps(js1))+"\r")
+           ser.write("AT+SEND="+str(json.dumps(temp))+"\r")
            ser.close()
-           f.write(json.dumps(js1))
-       if arg.barometer: 
-           print("Barometer: ", tag.barometer.read())
+           ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
+           ser.write("AT+SEND="+str(json.dumps(hum))+"\r")
+           ser.close()
+           print(temp)
+           print(humRH)
+           f.write(json.dumps(temp))
+           f.write(json.dumps(hum))
+        if arg.barometer or arg.all: 
+           #print(datetime)
+           #print("Barometer: ", tag.barometer.read())
            baro = tag.barometer.read()
-           js2 = [{"baro'C":baro[0],"barohPa":baro[1]}]
+           baro_js = [{"date":date,"time":time,"baro'C":baro[0]}]
+           barohPa_js = [{"date":date,"time":time,"barohPa":baro[1]}]
            ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
-           ser.write("AT+SEND="+str(json.dumps(js2))+"\r")
+           ser.write("AT+SEND="+str(json.dumps(baro_js))+"\r"+"\r")
            ser.close()
-           f.write(json.dumps(js2))
-       if arg.accelerometer:
-           print("Accelerometer: ", tag.accelerometer.read())
-           #tag.accelerometer.read())
+           ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
+           ser.write("AT+SEND="+str(json.dumps(barohPa_js))+"\r"+"\r")
+           ser.close()
+           print(baro_js)
+           print(barohPa_js)
+           f.write(json.dumps(baro_js))
+           f.write(json.dumps(barohPa_js))
+        if arg.accelerometer or arg.all:
+           #datetime = [{"date":date,"time":time}]
+           #print(datetime)
+           #print("Accelerometer: ", tag.accelerometer.read())
            accel = tag.accelerometer.read()
-           js3 = [{"accelX":accel[0],"accelY":accel[1],"accelZ":accel[2]}]
+           accelX = [{"date":date,"time":time,"accelX":accel[0]}]
+           accelY = [{"date":date,"time":time,"accelY":accel[1]}]
+           accelZ = [{"date":date,"time":time,"accelZ":accel[2]}]
            ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
-           ser.write("AT+SEND="+str(json.dumps(js3))+"\r")
+           ser.write("AT+SEND="+str(json.dumps(accelX))+"\r"+"\r")
            ser.close()
-           f.write(json.dumps(js3))
-       if arg.magnetometer:
-           print("Magnetometer: ", tag.magnetometer.read())
+           ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
+           ser.write("AT+SEND="+str(json.dumps(accelY))+"\r"+"\r")
+           ser.close()
+           ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
+           ser.write("AT+SEND="+str(json.dumps(accelZ))+"\r"+"\r")
+           ser.close()
+           print(accelX)
+           print(accelY)
+           print(accelZ)
+           f.write(json.dumps(accelX))
+           f.write(json.dumps(accelY))
+           f.write(json.dumps(accelZ))
+        if arg.magnetometer or arg.all:
+           #print(datetime)
+           #print("Magnetometer: ", tag.magnetometer.read())
            mag = tag.magnetometer.read()
-           js4 = [{"magX":mag[0],"magY":mag[1],"magZ":mag[2]}]
+           magX = [{"date":date,"time":time,"magX":mag[0]}]
+           magY = [{"date":date,"time":time,"magY":mag[1]}]
+           magZ = [{"date":date,"time":time,"magZ":mag[2]}]
            ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
-           ser.write("AT+SEND="+str(json.dumps(js4))+"\r")
+           ser.write("AT+SEND="+str(json.dumps(magX))+"\r")
            ser.close()
-           f.write(json.dumps(js4))
-       if arg.gyroscope:
-           print("Gyroscope: ", tag.gyroscope.read())
+           ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
+           ser.write("AT+SEND="+str(json.dumps(magY))+"\r")
+           ser.close()
+           ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
+           ser.write("AT+SEND="+str(json.dumps(magZ))+"\r")
+           ser.close()
+           print(magX)
+           print(magY)
+           print(magZ)
+           f.write(json.dumps(magX))
+           f.write(json.dumps(magY))
+           f.write(json.dumps(magZ))
+        if arg.gyroscope or arg.all:
+           #print(datetime)
+           #print("Gyroscope: ", tag.gyroscope.read())
            gyro = tag.gyroscope.read()
-           js5 = [{"gyroX":gyro[0],"gyroY":gyro[1],"gyroZ":gyro[2]}]
+           gyroX = [{"date":date,"time":time,"gyroX":gyro[0]}]
+           gyroY = [{"date":date,"time":time,"gyroY":gyro[1]}]
+           gyroZ = [{"date":date,"time":time,"gyroZ":gyro[2]}]
            ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
-           ser.write("AT+SEND="+str(json.dumps(js5))+"\r")
+           ser.write("AT+SEND="+str(json.dumps(gyroX))+"\r")
            ser.close()
-           f.write(json.dumps(js5))
-       if (arg.light) and tag.lightmeter is not None:
-           print("Light: ", tag.lightmeter.read())
+           ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
+           ser.write("AT+SEND="+str(json.dumps(gyroY))+"\r")
+           ser.close()
+           ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
+           ser.write("AT+SEND="+str(json.dumps(gyroZ))+"\r")
+           ser.close()
+           print(gyroX)
+           print(gyroY)
+           print(gyroZ)
+           f.write(json.dumps(gyroX))
+           f.write(json.dumps(gyroY))
+           f.write(json.dumps(gyroZ))
+        if (arg.light or arg.all) and tag.lightmeter is not None:
+           #print(datetime)
+           #print("Light: ", tag.lightmeter.read())
            li = tag.lightmeter.read()
-           js6 = [{"liLX":tag.lightmeter.read()}]
+           liLX = [{"date":date,"time":time,"liLX":tag.lightmeter.read()}]
            ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
-           ser.write("AT+SEND="+str(json.dumps(js6))+"\r")
+           ser.write("AT+SEND="+str(json.dumps(liLX))+"\r")
            ser.close()
-           f.write(json.dumps(js6))
-       if arg.battery:
-           print("Battery: ", tag.battery.read())
+           print(liLX)
+           f.write(json.dumps(liLX))
+        if arg.battery or arg.all:
+           #print(datetime)
+           #print("Battery: ", tag.battery.read())
            #ba = tag.battery.read()
-           js7 = [{"ba%":tag.battery.read()}]
+           battery = [{"date":date,"time":time,"battary":tag.battery.read()}]
            ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
-           ser.write("AT+SEND="+str(json.dumps(js7))+"\r")
+           ser.write("AT+SEND="+str(json.dumps(battery))+"\r")
            ser.close()
-           f.write(json.dumps(js7))
-       if arg.all:
-           print('Temp: ', tag.IRtemperature.read())
-           temp = tag.IRtemperature.read()
-           js = [{"temp'C":temp[0],"temp1'C":temp[1]}]
-           print("Humidity:",tag.humidity.read())
-           hum = tag.humidity.read()
-           js1 = [{"hum'C":hum[0],"hum%RH":hum[1]}]
-           print("Barometer: ", tag.barometer.read())
-           baro = tag.barometer.read()
-           js2 = [{"baro'C":baro[0],"barohPa":baro[1]}]
-           print("Accelerometer: ", tag.accelerometer.read())
-           accel = tag.accelerometer.read()
-           js3 = [{"accelX":accel[0],"accelY":accel[1],"accelZ":accel[2]}]
-           print("Magnetometer: ", tag.magnetometer.read())
-           mag = tag.magnetometer.read()
-           js4 = [{"magX":mag[0],"magY":mag[1],"magZ":mag[2]}]
-           print("Gyroscope: ", tag.gyroscope.read())
-           gyro = tag.gyroscope.read()
-           js5 = [{"gyroX":gyro[0],"gyroY":gyro[1],"gyroZ":gyro[2]}]
-           print("Light: ", tag.lightmeter.read())
-           li = tag.lightmeter.read()
-           js6 = [{"liLX":tag.lightmeter.read()}]
-           print("Battery: ", tag.battery.read())
-           js7 = [{"ba%":tag.battery.read()}]
-           js8 = [js,js1,js2,js3,js3,js4,js5,js6,js7]
+           print(battery)
+           f.write(json.dumps(battery))
+        if arg.all:
+           X_test = pd.DataFrame({'accelX':[accel[0]],'accelY':[accel[1]],'accelZ':[accel[2]],'gyroX':gyro[0],'gyroY':gyro[1],'gyroZ':gyro[2]})
+           #print(X_test)
+           clf = joblib.load("finalized_model.pkl")
+           predict = clf.predict(X_test)
+           #print(predict)
+           #print(str(predict[0]))
+           status = [{"date":date,"time":time,"status":str(predict[0])}]
+           print(status)
            ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
-           ser.write("AT+SEND="+str(json.dumps(js8))+"\r")
+           ser.write("AT+SEND="+str(json.dumps(status))+"\r")
            ser.close()
-           f.write(json.dumps(js8))
-       if counter >= arg.count and arg.count != 0:
+           
+            
+
+        if counter >= arg.count and arg.count != 0:
            break          
-       counter += 1
-       #tag.waitForNotifications(arg.t)
-       tag.waitForNotifications(0.1)
-       #print("==================================")
+           #js8 = [temp,hum,baro_js,barohPa_js,accelX,accelY,accelZ,magX,gyroX,gyroY,gyroZ,liLX,battery]
+           #ser=serial.Serial('/dev/ttyACM1', 115200, timeout=5)
+           #ser.write("AT+SEND="+str(json.dumps(js8))+"\r")
+           #ser.close()
+           #f.write(json.dumps(js8))
+        counter += 1
+        #tag.waitForNotifications(arg.t)
+        tag.waitForNotifications(0.1)
+        #print("==================================")
     tag.disconnect()
     del tag
 
